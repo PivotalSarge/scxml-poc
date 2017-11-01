@@ -8,9 +8,20 @@ import java.util.List;
 import javax.xml.stream.XMLReporter;
 import javax.xml.stream.XMLStreamException;
 
+import org.apache.commons.scxml2.Context;
+import org.apache.commons.scxml2.ErrorReporter;
+import org.apache.commons.scxml2.Evaluator;
+import org.apache.commons.scxml2.EventDispatcher;
 import org.apache.commons.scxml2.PathResolver;
+import org.apache.commons.scxml2.SCXMLExecutor;
+import org.apache.commons.scxml2.SCXMLListener;
+import org.apache.commons.scxml2.env.SimpleContext;
+import org.apache.commons.scxml2.env.SimpleDispatcher;
+import org.apache.commons.scxml2.env.SimpleErrorReporter;
+import org.apache.commons.scxml2.env.SimpleSCXMLListener;
 import org.apache.commons.scxml2.env.SimpleXMLReporter;
 import org.apache.commons.scxml2.env.URLResolver;
+import org.apache.commons.scxml2.env.minimal.MinimalEvaluator;
 import org.apache.commons.scxml2.io.SCXMLReader;
 import org.apache.commons.scxml2.model.CustomAction;
 import org.apache.commons.scxml2.model.Log;
@@ -19,10 +30,15 @@ import org.apache.commons.scxml2.model.SCXML;
 
 public class Main extends ArgumentInvoker {
   public static void main(String[] args) {
-    Main object = new Main();
-    invoke(args, object);
-
-    System.exit(0);
+    int status = 0;
+    try {
+      new Main().invoke(args);
+    }
+    catch (Exception e) {
+      status = 1;
+      e.printStackTrace(System.err);
+    }
+    System.exit(status);
   }
 
   public void write(String text) {
@@ -47,8 +63,7 @@ public class Main extends ArgumentInvoker {
       SCXML scxml = SCXMLReader.read(new URL(url), configuration);
       if (scxml != null) {
         System.out.println("Reading " + url + " succeeded.");
-      }
-      else {
+      } else {
         System.err.println("Reading " + url + " failed!");
       }
     } catch (IOException | ModelException | XMLStreamException e) {
@@ -57,19 +72,25 @@ public class Main extends ArgumentInvoker {
   }
 
   public void execute() {
-//    try {
-//      XMLReporter reporter = new SimpleXMLReporter();
-//      SCXML scxml = new SCXML();
-//      if (scxml != null) {
-//    SCXMLExecutor exec = new SCXMLExecutor(<Evaluator>,
-//                       <EventDispatcher>, <ErrorReporter>);
-//    exec.setStateMachine(<SCXML>);
-//    exec.addListener(<SCXML>, <SCXMLListener>);
-//    exec.setRootContext(<Context>);
-//    exec.go();
-//      }
-//    } catch (IOException | ModelException | XMLStreamException e) {
-//      e.printStackTrace(System.err);
-//    }
+    try {
+      SCXML stateMachine = new SCXML();
+      Evaluator evaluator = new MinimalEvaluator();
+      EventDispatcher eventDispatcher = new SimpleDispatcher();
+      ErrorReporter errorReporter = new SimpleErrorReporter();
+      SCXMLExecutor exec = new SCXMLExecutor(evaluator, eventDispatcher, errorReporter);
+      exec.setStateMachine(stateMachine);
+      SCXMLListener listener = new SimpleSCXMLListener();
+      exec.addListener(stateMachine, listener);
+      Context context = new SimpleContext();
+      exec.setRootContext(context);
+      exec.go();
+    } catch (ModelException e) {
+      e.printStackTrace(System.err);
+    }
+  }
+
+  @Override
+  protected String getDefaultMethodName() {
+    return "execute";
   }
 }
